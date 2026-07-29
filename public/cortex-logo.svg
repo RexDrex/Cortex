@@ -1,0 +1,84 @@
+<svg width="640" height="360" viewBox="0 0 640 360" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bgGlow" cx="50%" cy="42%" r="65%">
+      <stop offset="0%" stop-color="#14102b"/>
+      <stop offset="60%" stop-color="#0a0714"/>
+      <stop offset="100%" stop-color="#050308"/>
+    </radialGradient>
+    <radialGradient id="nodeCore" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="35%" stop-color="#c9b8ff"/>
+      <stop offset="100%" stop-color="#7f5af0" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="nodeCoreAccent" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="35%" stop-color="#9be8ec"/>
+      <stop offset="100%" stop-color="#2cb1bc" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="synapse" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7f5af0" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#2cb1bc" stop-opacity="0.35"/>
+    </linearGradient>
+    <linearGradient id="wordmarkFill" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f5f3ff"/>
+      <stop offset="100%" stop-color="#c9c2ea"/>
+    </linearGradient>
+    <filter id="softBloom" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- background -->
+  <rect x="0" y="0" width="640" height="360" fill="url(#bgGlow)"/>
+  <!-- === NEURAL CONSTELLATION MARK ===
+       Nodes arranged so the connecting lines trace a soft, open "C" —
+       a network of thoughts that also reads as the letter it stands for. -->
+  <g filter="url(#softBloom)">
+    <!-- synapse lines, drawn first so nodes sit on top -->
+    <g stroke="url(#synapse)" stroke-width="1.4" fill="none" opacity="0.85">
+      <path d="M 300 90  L 232 108"/>
+      <path d="M 232 108 L 190 150"/>
+      <path d="M 190 150 L 178 200"/>
+      <path d="M 178 200 L 196 252"/>
+      <path d="M 196 252 L 240 288"/>
+      <path d="M 240 288 L 300 302"/>
+      <path d="M 232 108 L 262 150"/>
+      <path d="M 190 150 L 234 168"/>
+      <path d="M 178 200 L 226 202"/>
+      <path d="M 196 252 L 238 236"/>
+      <path d="M 262 150 L 234 168"/>
+      <path d="M 234 168 L 226 202"/>
+      <path d="M 226 202 L 238 236"/>
+      <path d="M 262 150 L 300 138"/>
+      <path d="M 238 236 L 300 256"/>
+    </g>
+    <!-- nodes -->
+    <g>
+      <circle cx="300" cy="90"  r="14" fill="url(#nodeCore)"/>
+      <circle cx="232" cy="108" r="10" fill="url(#nodeCore)"/>
+      <circle cx="190" cy="150" r="8"  fill="url(#nodeCoreAccent)"/>
+      <circle cx="178" cy="200" r="12" fill="url(#nodeCore)"/>
+      <circle cx="196" cy="252" r="8"  fill="url(#nodeCoreAccent)"/>
+      <circle cx="240" cy="288" r="10" fill="url(#nodeCore)"/>
+      <circle cx="300" cy="302" r="14" fill="url(#nodeCore)"/>
+      <circle cx="262" cy="150" r="6"  fill="url(#nodeCoreAccent)"/>
+      <circle cx="234" cy="168" r="7"  fill="url(#nodeCore)"/>
+      <circle cx="226" cy="202" r="6"  fill="url(#nodeCoreAccent)"/>
+      <circle cx="238" cy="236" r="7"  fill="url(#nodeCore)"/>
+      <circle cx="300" cy="138" r="5"  fill="url(#nodeCoreAccent)"/>
+      <circle cx="300" cy="256" r="5"  fill="url(#nodeCoreAccent)"/>
+    </g>
+  </g>
+  <!-- wordmark -->
+  <text x="352" y="180" font-family="Futura, 'Century Gothic', 'Avenir Next', sans-serif"
+        font-size="52" letter-spacing="10" fill="url(#wordmarkFill)" font-weight="600">
+    CORTEX
+  </text>
+  <text x="354" y="208" font-family="'Avenir Next', 'Helvetica Neue', sans-serif"
+        font-size="13" letter-spacing="4" fill="#8b83b3">
+    THINK IN SPACE
+  </text>
+</svg>
