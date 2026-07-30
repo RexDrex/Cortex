@@ -84,13 +84,49 @@ function ExitPortal({ onExit }) {
   )
 }
 
+function NeighborPortal({ side, neighbor, onJump }) {
+  const ref = useRef()
+  const matRef = useRef()
+  const x = side === 'left' ? -6.2 : 6.2
+  useFrame((state) => {
+    if (ref.current) ref.current.rotation.z += 0.005
+    if (matRef.current) matRef.current.opacity = 0.5 + Math.sin(state.clock.elapsedTime * 1.1 + x) * 0.15
+  })
+  return (
+    <group position={[x, 1.6, 1]} rotation={[0, side === 'left' ? Math.PI / 2.4 : -Math.PI / 2.4, 0]}>
+      <mesh
+        ref={ref}
+        onClick={(e) => {
+          e.stopPropagation()
+          onJump(neighbor.id)
+        }}
+        onPointerOver={(e) => {
+          e.stopPropagation()
+          document.body.style.cursor = 'pointer'
+        }}
+        onPointerOut={(e) => {
+          e.stopPropagation()
+          document.body.style.cursor = 'auto'
+        }}
+      >
+        <torusGeometry args={[0.85, 0.06, 12, 40]} />
+        <meshBasicMaterial ref={matRef} color={neighbor.color} transparent opacity={0.55} />
+      </mesh>
+      <pointLight color={neighbor.color} intensity={1.2} distance={5} decay={2} />
+      <Text position={[0, -1.15, 0]} fontSize={0.15} color="#f5f3ff" anchorX="center" anchorY="middle" outlineWidth={0.007} outlineColor="#050308">
+        {neighbor.label}
+      </Text>
+    </group>
+  )
+}
+
 // The sealed interior of a landmark, entered via a pierce-through from
 // the open Void. Self-contained: a tinted enclosing shell, the category's
 // sub-features arranged around the player within easy reach, and an
 // explicit portal back out (plus a HUD fallback in App.jsx). This
 // replaces walking around an object from outside with actually being
 // inside it \u2014 which is what "entering a feature" should mean.
-export default function HubInterior({ landmark, activeSubFeature, content, onSelectSubFeature, onExit }) {
+export default function HubInterior({ landmark, activeSubFeature, content, onSelectSubFeature, onExit, neighbors = [], onJumpToNeighbor }) {
   const coreRef = useRef()
   const shellColor = useMemo(() => new THREE.Color(landmark.color).multiplyScalar(0.35), [landmark.color])
 
@@ -157,6 +193,8 @@ export default function HubInterior({ landmark, activeSubFeature, content, onSel
       ))}
 
       <ExitPortal onExit={onExit} />
+      {neighbors[0] && <NeighborPortal side="left" neighbor={neighbors[0]} onJump={onJumpToNeighbor} />}
+      {neighbors[1] && <NeighborPortal side="right" neighbor={neighbors[1]} onJump={onJumpToNeighbor} />}
     </>
   )
 }

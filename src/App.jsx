@@ -13,11 +13,16 @@ import Map from './components/Map'
 import Wisp from './components/Wisp'
 import WarpBurst from './components/WarpBurst'
 import TouchControls from './components/TouchControls'
+import TeleportRing from './components/TeleportRing'
+import PathLine from './components/PathLine'
+import Overview from './components/Overview'
 import { isTouchDevice } from './logic/device'
 import { speakGreeting } from './logic/speak'
 import { matchVoidIntent } from './logic/voidIntents'
 import { resolveSubFeature, resolveCategorySummary } from './logic/resolveFeature'
-import { LANDMARKS, landmarkPosition, getLandmark } from './logic/landmarks'
+import { LANDMARKS, landmarkPosition, getLandmark, neighborsOf } from './logic/landmarks'
+
+const RING_DIST = 10 // how far out from the center the teleportation rings sit
 import './App.css'
 
 const HINT_DELAY_MS = 7000
@@ -56,6 +61,8 @@ export default function App() {
   const [hubBrief, setHubBrief] = useState(null)
   const [interior, setInterior] = useState(null) // { landmarkId, returnPosition }
   const [isTouch] = useState(() => isTouchDevice())
+  const [ringPrompt, setRingPrompt] = useState(null) // { id, label, position }
+  const [pathRequest, setPathRequest] = useState(null) // { to, key } — the visible Point Direction line
 
   const flashRef = useRef()
   const greeted = useRef(false)
@@ -64,6 +71,24 @@ export default function App() {
   const lookDeltaRef = useRef({ dx: 0, dy: 0 })
 
   const landmarkTargets = useMemo(() => LANDMARKS.map((lm) => ({ id: lm.id, position: landmarkPosition(lm) })), [])
+
+  // One ring per landmark, standing near the center, each rotated to
+  // face that landmark's actual direction — so "which ring goes where"
+  // is legible just from how they're arranged, not just from labels.
+  const teleportRings = useMemo(
+    () =>
+      LANDMARKS.map((lm) => {
+        const angle = Math.atan2(lm.z, lm.x)
+        return {
+          id: lm.id,
+          label: lm.label,
+          color: lm.color,
+          angle,
+          position: [Math.cos(angle) * RING_DIST, 1.6, Math.sin(angle) * RING_DIST],
+        }
+      }),
+    []
+  )
 
   const dismissPopup = useCallback(() => setPopupVisible(false), [])
 
@@ -166,6 +191,72 @@ export default function App() {
     [dismissPopup, activeCategory]
   )
 
+  const handleApproachRing = useCallback(
+    (id) => {
+      const ring = teleportRings.find((r) => r.id === id)
+      if (!ring) return
+      setRingPrompt(ring)
+      document.exitPointerLock && document.exitPointerLock()
+    },
+    [teleportRings]
+  )
+
+  const handleLeaveRing = useCallback((id) => {
+    setRingPrompt((prev) => (prev && prev.id === id ? null : prev))
+  }, [])
+
+  const handleCancelRingPrompt = useCallback(() => setRingPrompt(null), [])
+
+  const handleConfirmRingTeleport = useCallback(() => {
+    if (!ringPrompt) return
+    const { id, position } = ringPrompt
+    const lm = getLandmark(id)
+    if (!lm) return
+    setRingPrompt(null)
+
+    const firstVisit = !visitedLandmarks.current.has(id)
+    visitedLandmarks.current.add(id)
+    if (activeCategory !== id) {
+      setActiveSubFeature(null)
+      setContent(null)
+      setActiveCategory(id)
+    }
+
+    pierceFlash(flashRef)
+    setTimeout(() => {
+      // Landing back here later (via this hub's own Exit ring) returns
+      // the player to exactly the ring they stepped through — a clean
+      // round trip, the same way piercing in from the open Void does.
+      setInterior({ landmarkId: id, returnPosition: position })
+      setTeleportRequest({ position: [0, 1.6, 3], lookAt: [0, 1.6, 0], key: `ring-in-${Date.now()}` })
+      if (firstVisit) setHubBrief({ label: lm.label, text: lm.intro, key: Date.now() })
+    }, 160)
+  }, [ringPrompt, activeCategory])
+
+  const handleJumpToNeighbor = useCallback(
+    (neighborId) => {
+      const lm = getLandmark(neighborId)
+      if (!lm) return
+      const firstVisit = !visitedLandmarks.current.has(neighborId)
+      visitedLandmarks.current.add(neighborId)
+      if (activeCategory !== neighborId) {
+        setActiveSubFeature(null)
+        setContent(null)
+        setActiveCategory(neighborId)
+      }
+      const [lx, , lz] = landmarkPosition(lm)
+      const dist = Math.sqrt(lx * lx + lz * lz) || 1
+      const returnPosition = [lx - (lx / dist) * ENTER_RADIUS_MARGIN, 0, lz - (lz / dist) * ENTER_RADIUS_MARGIN]
+      pierceFlash(flashRef)
+      setTimeout(() => {
+        setInterior({ landmarkId: neighborId, returnPosition })
+        setTeleportRequest({ position: [0, 1.6, 3], lookAt: [0, 1.6, 0], key: `neighbor-${Date.now()}` })
+        if (firstVisit) setHubBrief({ label: lm.label, text: lm.intro, key: Date.now() })
+      }, 160)
+    },
+    [activeCategory]
+  )
+
   const handleExitInterior = useCallback(() => {
     if (!interior) return
     const returnPosition = interior.returnPosition
@@ -202,9 +293,17 @@ export default function App() {
 
   const handlePointTheWay = useCallback(
     (id, position) => {
-      setLookAtRequest({ id, position, key: `look-${Date.now()}` })
+      const key = `look-${Date.now()}`
+      setLookAtRequest({ id, position, key })
+      setPathRequest({ to: position, key })
       handleCloseMap()
       dismissPopup()
+      // Let the path actually be seen before the booster fires — this
+      // delay is the whole point of Point Direction: you watch the route
+      // light up first, instead of an instant, abstracted jump.
+      setTimeout(() => {
+        setWarpRequest({ id, position, key: `pointdir-${Date.now()}` })
+      }, 650)
     },
     [handleCloseMap, dismissPopup]
   )
@@ -236,6 +335,8 @@ export default function App() {
     setBoosting(false)
     setListening(false)
     setHinting(false)
+    setRingPrompt(null)
+    setPathRequest(null)
     visitedLandmarks.current.clear()
     greeted.current = false
     setPhase('splash')
@@ -293,7 +394,7 @@ export default function App() {
     return () => clearTimeout(timer)
   }, [phase, popupVisible, learnActive, consoleOpen, mapOpen, listening])
 
-  const firstPersonEnabled = phase === 'world' && !consoleOpen && !mapOpen && !learnActive
+  const firstPersonEnabled = phase === 'world' && !consoleOpen && !mapOpen && !learnActive && !ringPrompt
   const activeLandmark = interior ? getLandmark(interior.landmarkId) : null
 
   return (
@@ -314,15 +415,25 @@ export default function App() {
                 content={content}
                 onSelectSubFeature={handleInteriorSelectSubFeature}
                 onExit={handleExitInterior}
+                neighbors={interior ? neighborsOf(interior.landmarkId) : []}
+                onJumpToNeighbor={handleJumpToNeighbor}
               />
             ) : (
               <VoidWorld activeCategory={activeCategory} activeSubFeature={activeSubFeature} content={content} />
             )}
+            {!interior &&
+              teleportRings.map((r) => (
+                <TeleportRing key={r.id} position={r.position} angle={r.angle} color={r.color} label={r.label} />
+              ))}
+            {!interior && pathRequest && <PathLine to={pathRequest.to} requestKey={pathRequest.key} />}
             <FirstPersonRig
               enabled={firstPersonEnabled}
               landmarks={interior ? [] : landmarkTargets}
+              rings={interior ? [] : teleportRings}
               onArrive={handleArrive}
               onEnterHub={handleEnterHub}
+              onApproachRing={handleApproachRing}
+              onLeaveRing={handleLeaveRing}
               onBoostStart={() => setBoosting(true)}
               onBoostEnd={() => setBoosting(false)}
               warpRequest={warpRequest}
@@ -375,7 +486,7 @@ export default function App() {
         </div>
       )}
 
-      {phase === 'world' && learnActive && <LearnSequence onComplete={handleLearnComplete} />}
+      {phase === 'world' && learnActive && <Overview onComplete={handleLearnComplete} />}
 
       {phase === 'world' && consoleOpen && (
         <CenterConsole onSubmitIntent={handleSubmitIntent} onActivityChange={setListening} />
@@ -383,6 +494,20 @@ export default function App() {
 
       {phase === 'world' && mapOpen && !interior && (
         <Map onClose={handleCloseMap} onPointTheWay={handlePointTheWay} onWarp={handleWarp} />
+      )}
+
+      {phase === 'world' && ringPrompt && (
+        <div className="ring-prompt-popup" key={ringPrompt.id}>
+          <p className="ring-prompt-text">Enter {ringPrompt.label}?</p>
+          <div className="ring-prompt-actions">
+            <button className="landing-enter-btn" onClick={handleConfirmRingTeleport}>
+              Enter
+            </button>
+            <button className="landing-enter-btn landing-enter-btn-ghost" onClick={handleCancelRingPrompt}>
+              Not yet
+            </button>
+          </div>
+        </div>
       )}
 
       {phase === 'world' && hubBrief && (
@@ -438,37 +563,7 @@ export default function App() {
   )
 }
 
-// Stage 3 — "Learn about Cortex". A short immersive sequence rather than
-// a static page: a few lines fade in and out in turn, then the player is
-// handed back to free exploration.
-function LearnSequence({ onComplete }) {
-  const lines = [
-    'Cortex is a fintech app rebuilt as a place, not a dashboard.',
-    'Your accounts, spending, and goals exist as landmarks in an open world.',
-    'Walk toward what you want — or simply say it, and Cortex carries you there.',
-  ]
-  const [index, setIndex] = useState(0)
-
-  useEffect(() => {
-    if (index >= lines.length) {
-      const t = setTimeout(onComplete, 900)
-      return () => clearTimeout(t)
-    }
-    const t = setTimeout(() => setIndex((i) => i + 1), 2600)
-    return () => clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index])
-
-  return (
-    <div className="learn-overlay">
-      {lines.map((line, i) => (
-        <p key={i} className={`learn-line${i === index ? ' is-active' : ''}${i < index ? ' is-past' : ''}`}>
-          {line}
-        </p>
-      ))}
-      <button className="landing-enter-btn learn-skip" onClick={onComplete}>
-        Continue exploring
-      </button>
-    </div>
-  )
-}
+// Stage 3 — "Learn about Cortex" now renders the real Overview
+// component (src/components/Overview.jsx) — floating, draggable panels
+// with a proper swirl-and-vanish dismiss, replacing the old three-line
+// placeholder that used to live here.

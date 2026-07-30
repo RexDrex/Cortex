@@ -21,11 +21,17 @@ const MAX_PITCH = Math.PI / 2 - 0.05
 //             there's no pointer to lock on a touchscreen)
 // Three things trigger the same unified "boost": proximity, a stated
 // intent, or a Map selection.
+const RING_APPROACH_RADIUS = 3.4
+const RING_LEAVE_RADIUS = 4.6 // slightly larger than approach — avoids flicker right at the edge
+
 export default function FirstPersonRig({
   enabled,
   landmarks = [],
+  rings = [],
   onArrive,
   onEnterHub,
+  onApproachRing,
+  onLeaveRing,
   onBoostStart,
   onBoostEnd,
   warpRequest,
@@ -45,6 +51,7 @@ export default function FirstPersonRig({
   const boosting = useRef(false)
   const arrivedId = useRef(null)
   const enteredId = useRef(null)
+  const approachedRingId = useRef(null)
   const lastWarpKey = useRef(null)
   const lastLookKey = useRef(null)
   const lastTeleportKey = useRef(null)
@@ -205,6 +212,24 @@ export default function FirstPersonRig({
       }
       if (dist >= ENTER_RADIUS && enteredId.current === lm.id) {
         enteredId.current = null
+      }
+    }
+
+    // Teleportation rings only ever raise a confirm prompt on approach —
+    // they never fire the teleport themselves. Leaving the radius (with
+    // a slightly larger threshold, to avoid flicker right at the edge)
+    // clears the prompt so it doesn't linger once the player walks away.
+    for (const r of rings) {
+      const dx = camera.position.x - r.position[0]
+      const dz = camera.position.z - r.position[2]
+      const dist = Math.sqrt(dx * dx + dz * dz)
+      if (dist < RING_APPROACH_RADIUS && approachedRingId.current !== r.id) {
+        approachedRingId.current = r.id
+        onApproachRing && onApproachRing(r.id)
+      }
+      if (dist >= RING_LEAVE_RADIUS && approachedRingId.current === r.id) {
+        approachedRingId.current = null
+        onLeaveRing && onLeaveRing(r.id)
       }
     }
   })

@@ -714,7 +714,109 @@ html, body, #root {
   color: var(--text-primary);
 }
 
-/* ---------- V4: Learn sequence ---------- */
+/* ---------- V5: Teleportation ring confirm prompt (same HUD language
+   as hub-brief, deliberately — this is the same "are you sure" pattern,
+   just triggered by proximity to a ring instead of walking into a hub) ---------- */
+
+.ring-prompt-popup {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 4;
+  width: min(90vw, 360px);
+  padding: 1.6em 2em;
+  text-align: center;
+  clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px);
+  background: linear-gradient(160deg, rgba(22, 15, 42, 0.9), rgba(7, 5, 14, 0.94));
+  border: 1px solid rgba(127, 90, 240, 0.5);
+  box-shadow: 0 0 60px rgba(127, 90, 240, 0.22), inset 0 0 40px rgba(127, 90, 240, 0.07);
+  opacity: 0;
+  animation: landingRise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  pointer-events: auto;
+}
+
+.ring-prompt-text {
+  margin: 0 0 1em;
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.ring-prompt-actions {
+  display: flex;
+  gap: 0.8em;
+  justify-content: center;
+}
+
+/* ---------- V5: Overview — the real Surface-layer tutorial. Floating,
+   draggable panels that swirl into an orbit around the player and
+   vanish on dismiss, replacing the old three-line placeholder. ---------- */
+
+.overview-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.overview-panel {
+  position: absolute;
+  width: min(78vw, 300px);
+  padding: 1.1em 1.3em 1.2em;
+  pointer-events: auto;
+  background: linear-gradient(160deg, rgba(22, 15, 42, 0.92), rgba(7, 5, 14, 0.95));
+  border: 1px solid rgba(127, 90, 240, 0.45);
+  box-shadow: 0 0 45px rgba(127, 90, 240, 0.18), inset 0 0 30px rgba(127, 90, 240, 0.06);
+  clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+  opacity: 0;
+  animation: landingRise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  transition: opacity 0.7s ease;
+}
+
+.overview-panel.is-dismissing {
+  transition: transform 0.72s cubic-bezier(0.6, -0.2, 0.85, 0.2), opacity 0.72s ease 0.15s;
+  opacity: 0;
+}
+
+.overview-panel-handle {
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  margin-bottom: 0.55em;
+  padding-bottom: 0.5em;
+  border-bottom: 1px solid rgba(127, 90, 240, 0.3);
+}
+
+.overview-panel-handle:active {
+  cursor: grabbing;
+}
+
+.overview-panel-body {
+  font-family: 'Inter', sans-serif;
+  font-weight: 300;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.overview-dismiss {
+  position: absolute;
+  bottom: 6%;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+/* ---------- V4: Learn sequence (superseded by Overview above; kept only
+   in case something still references the old classnames during rollout) ---------- */
 
 .learn-overlay {
   position: absolute;

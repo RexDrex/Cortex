@@ -120,3 +120,16 @@ export function landmarkPosition(lm) {
 export function getLandmark(id) {
   return LANDMARKS.find((l) => l.id === id) || null
 }
+
+// Ring adjacency for feature-to-feature travel. The 7 landmarks are
+// treated as sitting around one irregular ring in array order — not
+// evenly spaced, but each has exactly two neighbors along that ring.
+// This is a traversal relationship, not a claim about visual placement:
+// the landmarks stay hand-scattered in the Void as they already are.
+export function neighborsOf(id) {
+  const idx = LANDMARKS.findIndex((l) => l.id === id)
+  if (idx === -1) return []
+  const prev = LANDMARKS[(idx - 1 + LANDMARKS.length) % LANDMARKS.length]
+  const next = LANDMARKS[(idx + 1) % LANDMARKS.length]
+  return [prev, next]
+}
