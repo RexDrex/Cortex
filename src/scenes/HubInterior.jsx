@@ -50,20 +50,75 @@ function SubOrb({ position, color, label, active, onSelect }) {
   )
 }
 
-function ExitPortal({ onExit }) {
+// Exit is deliberately NOT a ring — every other way of moving through
+// this world (the 7 teleport rings, the 3 rings a feature would otherwise
+// need) is an open loop you pass through, representing "going somewhere
+// specific." Exit is the opposite: not a route to a place, a release
+// back into free movement. A faceted crystal shard reads as a distinct
+// silhouette from any angle, in a deliberately neutral warm-white/amber
+// tone that doesn't borrow any feature's own color — "this isn't tied
+// to a category, it's just the way out."
+function ExitShard({ onExit }) {
   const ref = useRef()
   const matRef = useRef()
-  useFrame((state) => {
-    if (ref.current) ref.current.rotation.z += 0.006
-    if (matRef.current) matRef.current.opacity = 0.55 + Math.sin(state.clock.elapsedTime * 1.4) * 0.15
+  const [hovered, setHovered] = useState(false)
+  useFrame((state, delta) => {
+    if (ref.current) {
+      ref.current.rotation.y += delta * 0.35
+      ref.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.4) * 0.15
+    }
+    if (matRef.current) {
+      matRef.current.opacity = (hovered ? 0.95 : 0.7) + Math.sin(state.clock.elapsedTime * 1.6) * 0.1
+    }
   })
   return (
-    <group position={[0, 1.6, 7.5]} rotation={[0, Math.PI, 0]}>
+    <group position={[0, 1.7, 7.5]}>
       <mesh
         ref={ref}
         onClick={(e) => {
           e.stopPropagation()
           onExit()
+        }}
+        onPointerOver={(e) => {
+          e.stopPropagation()
+          setHovered(true)
+          document.body.style.cursor = 'pointer'
+        }}
+        onPointerOut={(e) => {
+          e.stopPropagation()
+          setHovered(false)
+          document.body.style.cursor = 'auto'
+        }}
+      >
+        <octahedronGeometry args={[0.62, 0]} />
+        <meshBasicMaterial ref={matRef} color="#ffe9b0" transparent opacity={0.75} />
+      </mesh>
+      <pointLight color="#ffe9b0" intensity={hovered ? 2.4 : 1.4} distance={6} decay={2} />
+      <Text position={[0, -1.05, 0]} fontSize={0.18} color="#f5f3ff" anchorX="center" anchorY="middle" outlineWidth={0.008} outlineColor="#050308">
+        Exit — back to Flow
+      </Text>
+    </group>
+  )
+}
+
+// The ring facing "front" — back to the Surface Overview/center. This is
+// its own distinct ring, separate from Exit: Exit drops you into free
+// movement right where you are, this one is a structured jump all the
+// way back to the world's center.
+function CenterPortal({ onReturnToCenter }) {
+  const ref = useRef()
+  const matRef = useRef()
+  useFrame((state) => {
+    if (ref.current) ref.current.rotation.z += 0.005
+    if (matRef.current) matRef.current.opacity = 0.5 + Math.sin(state.clock.elapsedTime * 1.3) * 0.15
+  })
+  return (
+    <group position={[0, 1.6, -7.5]}>
+      <mesh
+        ref={ref}
+        onClick={(e) => {
+          e.stopPropagation()
+          onReturnToCenter()
         }}
         onPointerOver={(e) => {
           e.stopPropagation()
@@ -75,10 +130,11 @@ function ExitPortal({ onExit }) {
         }}
       >
         <torusGeometry args={[1.1, 0.09, 12, 48]} />
-        <meshBasicMaterial ref={matRef} color="#f5f3ff" transparent opacity={0.6} />
+        <meshBasicMaterial ref={matRef} color="#7f5af0" transparent opacity={0.6} />
       </mesh>
-      <Text position={[0, -1.5, 0]} fontSize={0.18} color="#f5f3ff" anchorX="center" anchorY="middle" outlineWidth={0.008} outlineColor="#050308">
-        Exit
+      <pointLight color="#7f5af0" intensity={1.4} distance={6} decay={2} />
+      <Text position={[0, -1.5, 0]} fontSize={0.16} color="#f5f3ff" anchorX="center" anchorY="middle" outlineWidth={0.008} outlineColor="#050308">
+        Surface Overview
       </Text>
     </group>
   )
@@ -126,7 +182,7 @@ function NeighborPortal({ side, neighbor, onJump }) {
 // explicit portal back out (plus a HUD fallback in App.jsx). This
 // replaces walking around an object from outside with actually being
 // inside it \u2014 which is what "entering a feature" should mean.
-export default function HubInterior({ landmark, activeSubFeature, content, onSelectSubFeature, onExit, neighbors = [], onJumpToNeighbor }) {
+export default function HubInterior({ landmark, activeSubFeature, content, onSelectSubFeature, onExit, neighbors = [], onJumpToNeighbor, onReturnToCenter }) {
   const coreRef = useRef()
   const shellColor = useMemo(() => new THREE.Color(landmark.color).multiplyScalar(0.35), [landmark.color])
 
@@ -192,7 +248,8 @@ export default function HubInterior({ landmark, activeSubFeature, content, onSel
         />
       ))}
 
-      <ExitPortal onExit={onExit} />
+      <ExitShard onExit={onExit} />
+      <CenterPortal onReturnToCenter={onReturnToCenter} />
       {neighbors[0] && <NeighborPortal side="left" neighbor={neighbors[0]} onJump={onJumpToNeighbor} />}
       {neighbors[1] && <NeighborPortal side="right" neighbor={neighbors[1]} onJump={onJumpToNeighbor} />}
     </>

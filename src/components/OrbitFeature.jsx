@@ -3,10 +3,10 @@ import { useFrame } from '@react-three/fiber'
 import { Text, Html } from '@react-three/drei'
 import * as THREE from 'three'
 
-const HUB_RADIUS = 2.1
-const RING_RADII = [3.6, 5.3]
+const HUB_RADIUS = 13 // scaled up so hubs read as massive, distant landmarks
+const RING_RADII = [22, 32]
 const RING_SPEEDS = [0.06, -0.045]
-const RING_TUBE = 0.18 // real width — these are meant to read as physical, walkable channels
+const RING_TUBE = 1.0 // real width — these are meant to read as physical, walkable channels
 
 function Ring({ radius, speed, color, tilt }) {
   const ref = useRef()
@@ -44,12 +44,12 @@ function Moon({ ringIndex, angleOffset, color, label, active, hubPosition }) {
 
   return (
     <group ref={groupRef}>
-      <pointLight ref={lightRef} color={color} distance={4} decay={2} />
+      <pointLight ref={lightRef} color={color} distance={26} decay={2} />
       <mesh>
-        <sphereGeometry args={[0.42, 24, 24]} />
+        <sphereGeometry args={[2.4, 24, 24]} />
         <meshBasicMaterial ref={matRef} color={color} transparent opacity={0.8} />
       </mesh>
-      <Text position={[0, 0.62, 0]} fontSize={0.28} color="#f5f3ff" anchorX="center" anchorY="bottom" outlineWidth={0.012} outlineColor="#050308">
+      <Text position={[0, 3.4, 0]} fontSize={1.5} color="#f5f3ff" anchorX="center" anchorY="bottom" outlineWidth={0.012} outlineColor="#050308">
         {label}
       </Text>
     </group>
@@ -83,18 +83,18 @@ export default function OrbitFeature({ label, color, position, activeSubFeature,
       <Ring radius={RING_RADII[1]} speed={RING_SPEEDS[1]} color={color} tilt={-0.12} />
 
       <group ref={hubRef}>
-        <pointLight ref={hubLightRef} color={color} distance={14} decay={1.6} />
+        <pointLight ref={hubLightRef} color={color} distance={95} decay={1.6} />
         <mesh>
           <sphereGeometry args={[HUB_RADIUS, 32, 32]} />
           <meshBasicMaterial ref={hubMatRef} color={color} transparent opacity={0.85} />
         </mesh>
-        <Text position={[0, HUB_RADIUS + 0.7, 0]} fontSize={0.55} color="#f5f3ff" anchorX="center" anchorY="bottom" outlineWidth={0.02} outlineColor="#050308">
+        <Text position={[0, HUB_RADIUS + 4, 0]} fontSize={3.2} color="#f5f3ff" anchorX="center" anchorY="bottom" outlineWidth={0.02} outlineColor="#050308">
           {label}
         </Text>
       </group>
 
       {content && (
-        <Html position={[0, HUB_RADIUS * 0.4, HUB_RADIUS + 0.3]} center distanceFactor={12}>
+        <Html position={[0, HUB_RADIUS * 0.4, HUB_RADIUS + 2]} center distanceFactor={12}>
           <div className="orbit-hub-panel">
             <div className="orbit-hub-title">{content.title}</div>
             <div className="orbit-hub-detail">{content.detail}</div>

@@ -6,9 +6,9 @@ import * as THREE from 'three'
 
 const MOVE_SPEED = 5.2
 const EYE_HEIGHT = 1.6
-const BOOST_RADIUS = 9
-const ENTER_RADIUS = 3.4
-const APPROACH_OFFSET = 7.5
+const BOOST_RADIUS = 55 // scaled up alongside the new hub size and vast landmark distances
+const ENTER_RADIUS = 17 // just outside the enlarged hub geometry (radius 13)
+const APPROACH_OFFSET = 26
 const TOUCH_LOOK_SENSITIVITY = 0.0026
 const MAX_PITCH = Math.PI / 2 - 0.05
 

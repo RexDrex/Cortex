@@ -9,13 +9,16 @@ import VoidWorld from './scenes/VoidWorld'
 import HubInterior from './scenes/HubInterior'
 import FirstPersonRig from './components/FirstPersonRig'
 import CenterConsole from './components/CenterConsole'
-import Map from './components/Map'
+import Map3D from './components/Map3D'
 import Wisp from './components/Wisp'
 import WarpBurst from './components/WarpBurst'
 import TouchControls from './components/TouchControls'
 import TeleportRing from './components/TeleportRing'
 import PathLine from './components/PathLine'
-import Overview from './components/Overview'
+import Overview, { buildFeaturePanels } from './components/Overview'
+import EntryPrompt from './components/EntryPrompt'
+import RingPrompt3D from './components/RingPrompt3D'
+import Crosshair from './components/Crosshair'
 import { isTouchDevice } from './logic/device'
 import { speakGreeting } from './logic/speak'
 import { matchVoidIntent } from './logic/voidIntents'
@@ -27,7 +30,7 @@ import './App.css'
 
 const HINT_DELAY_MS = 7000
 const MOVE_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']
-const ENTER_RADIUS_MARGIN = 6 // safe return distance outside a hub's ENTER_RADIUS on exit
+const ENTER_RADIUS_MARGIN = 22 // safe return distance outside a hub's ENTER_RADIUS on exit (scaled with the enlarged hubs)
 
 function pierceFlash(flashRef) {
   if (!flashRef.current) return
@@ -58,7 +61,7 @@ export default function App() {
   const [lookAtRequest, setLookAtRequest] = useState(null)
   const [teleportRequest, setTeleportRequest] = useState(null)
   const [boosting, setBoosting] = useState(false)
-  const [hubBrief, setHubBrief] = useState(null)
+  const [featureOverviewOpen, setFeatureOverviewOpen] = useState(false)
   const [interior, setInterior] = useState(null) // { landmarkId, returnPosition }
   const [isTouch] = useState(() => isTouchDevice())
   const [ringPrompt, setRingPrompt] = useState(null) // { id, label, position }
@@ -106,13 +109,15 @@ export default function App() {
   const handleStateIntention = useCallback(() => {
     setConsoleOpen(true)
     dismissPopup()
+    // CenterConsole still needs a real DOM text input for typing — the
+    // one deliberate exception in an otherwise fully 3D interface, so
+    // this is the one place a lock release is still genuinely required.
     document.exitPointerLock && document.exitPointerLock()
   }, [dismissPopup])
 
   const handleLearnAboutCortex = useCallback(() => {
     setLearnActive(true)
     dismissPopup()
-    document.exitPointerLock && document.exitPointerLock()
   }, [dismissPopup])
 
   const handleLearnComplete = useCallback(() => setLearnActive(false), [])
@@ -185,7 +190,7 @@ export default function App() {
       setTimeout(() => {
         setInterior({ landmarkId, returnPosition })
         setTeleportRequest({ position: [0, 1.6, 3], lookAt: [0, 1.6, 0], key: `pierce-in-${Date.now()}` })
-        if (firstVisit) setHubBrief({ label: lm.label, text: lm.intro, key: Date.now() })
+        if (firstVisit) setFeatureOverviewOpen(true)
       }, 160)
     },
     [dismissPopup, activeCategory]
@@ -196,7 +201,6 @@ export default function App() {
       const ring = teleportRings.find((r) => r.id === id)
       if (!ring) return
       setRingPrompt(ring)
-      document.exitPointerLock && document.exitPointerLock()
     },
     [teleportRings]
   )
@@ -229,7 +233,7 @@ export default function App() {
       // round trip, the same way piercing in from the open Void does.
       setInterior({ landmarkId: id, returnPosition: position })
       setTeleportRequest({ position: [0, 1.6, 3], lookAt: [0, 1.6, 0], key: `ring-in-${Date.now()}` })
-      if (firstVisit) setHubBrief({ label: lm.label, text: lm.intro, key: Date.now() })
+      if (firstVisit) setFeatureOverviewOpen(true)
     }, 160)
   }, [ringPrompt, activeCategory])
 
@@ -251,11 +255,22 @@ export default function App() {
       setTimeout(() => {
         setInterior({ landmarkId: neighborId, returnPosition })
         setTeleportRequest({ position: [0, 1.6, 3], lookAt: [0, 1.6, 0], key: `neighbor-${Date.now()}` })
-        if (firstVisit) setHubBrief({ label: lm.label, text: lm.intro, key: Date.now() })
+        if (firstVisit) setFeatureOverviewOpen(true)
       }, 160)
     },
     [activeCategory]
   )
+
+  // The ring back to the Surface Overview/center — a structured jump to
+  // the world's spawn point, distinct from Exit (which just drops the
+  // player into Flow exactly where they already were).
+  const handleReturnToCenter = useCallback(() => {
+    pierceFlash(flashRef)
+    setTimeout(() => {
+      setInterior(null)
+      setTeleportRequest({ position: [0, 1.6, 5], key: `return-center-${Date.now()}` })
+    }, 160)
+  }, [])
 
   const handleExitInterior = useCallback(() => {
     if (!interior) return
@@ -275,19 +290,13 @@ export default function App() {
     [interior, applyResult]
   )
 
-  const dismissHubBrief = useCallback(() => setHubBrief(null), [])
-
-  // Redundant safety net: even if the player neither moves nor manages
-  // to click dismiss, the briefing never lingers indefinitely.
-  useEffect(() => {
-    if (!hubBrief) return
-    const t = setTimeout(() => setHubBrief(null), 6500)
-    return () => clearTimeout(t)
-  }, [hubBrief])
+  // Feature Overview has its own explicit dismiss controls (each panel's
+  // "Pull closer/Release", plus the main entry button) and movement is
+  // already paused while it's open, so no separate safety-net timeout
+  // is needed the way the old DOM hub-brief required one.
 
   const handleOpenMap = useCallback(() => {
     setMapOpen(true)
-    document.exitPointerLock && document.exitPointerLock()
   }, [])
   const handleCloseMap = useCallback(() => setMapOpen(false), [])
 
@@ -330,7 +339,7 @@ export default function App() {
     setWarpRequest(null)
     setLookAtRequest(null)
     setTeleportRequest(null)
-    setHubBrief(null)
+    setFeatureOverviewOpen(false)
     setInterior(null)
     setBoosting(false)
     setListening(false)
@@ -342,37 +351,40 @@ export default function App() {
     setPhase('splash')
   }, [])
 
-  // Popups dismiss the moment the player shows intent to just move — this
-  // matters especially for hub-brief, which otherwise has no way to
-  // close if pointer-lock is engaged (a locked cursor can't click a
-  // fixed-position button).
+  // The entry popup dismisses the moment the player shows intent to just
+  // move — a nice-to-have fallback alongside its own explicit dismiss
+  // button, which (now that it's a real 3D panel) works under pointer
+  // lock the same way every other in-world button does.
   useEffect(() => {
-    if (!popupVisible && !hubBrief) return
+    if (!popupVisible) return
     const handler = (e) => {
-      if (MOVE_KEYS.includes(e.code)) {
-        dismissPopup()
-        setHubBrief(null)
-      }
+      if (MOVE_KEYS.includes(e.code)) dismissPopup()
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [popupVisible, hubBrief, dismissPopup])
+  }, [popupVisible, dismissPopup])
 
   // Map toggle (M), Escape-to-close for any open overlay, Backspace to
-  // leave a hub interior — keyboard paths that don't depend on clicking,
-  // since a locked pointer can make fixed-position buttons unreliable.
+  // Map (M), Speak (V), Backspace to leave a hub interior, Q to leave
+  // Cortex entirely — every action reachable by key, since the old
+  // fixed-position button bar is gone along with the rest of the 2D UI.
+  // Disabling firstPersonEnabled (via mapOpen/consoleOpen) already
+  // unmounts PointerLockControls and releases the lock on its own.
   useEffect(() => {
     if (phase !== 'world') return
     const handler = (e) => {
       if (e.code === 'KeyM' && !consoleOpen && !learnActive && !interior) {
-        setMapOpen((v) => {
-          const next = !v
-          if (next) document.exitPointerLock && document.exitPointerLock()
-          return next
-        })
+        setMapOpen((v) => !v)
+      }
+      if (e.code === 'KeyV' && !mapOpen && !learnActive) {
+        setConsoleOpen(true)
+        document.exitPointerLock && document.exitPointerLock()
       }
       if (e.code === 'Backspace' && interior && !consoleOpen) {
         handleExitInterior()
+      }
+      if (e.code === 'KeyQ' && !consoleOpen && !mapOpen && !learnActive) {
+        handleExit()
       }
       if (e.code === 'Escape') {
         setConsoleOpen(false)
@@ -382,7 +394,7 @@ export default function App() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [phase, consoleOpen, learnActive, interior, handleExitInterior])
+  }, [phase, consoleOpen, mapOpen, learnActive, interior, handleExitInterior, handleExit])
 
   // The Wisp's hint state.
   useEffect(() => {
@@ -394,7 +406,7 @@ export default function App() {
     return () => clearTimeout(timer)
   }, [phase, popupVisible, learnActive, consoleOpen, mapOpen, listening])
 
-  const firstPersonEnabled = phase === 'world' && !consoleOpen && !mapOpen && !learnActive && !ringPrompt
+  const firstPersonEnabled = phase === 'world' && !consoleOpen && !mapOpen && !learnActive && !ringPrompt && !featureOverviewOpen
   const activeLandmark = interior ? getLandmark(interior.landmarkId) : null
 
   return (
@@ -417,6 +429,7 @@ export default function App() {
                 onExit={handleExitInterior}
                 neighbors={interior ? neighborsOf(interior.landmarkId) : []}
                 onJumpToNeighbor={handleJumpToNeighbor}
+                onReturnToCenter={handleReturnToCenter}
               />
             ) : (
               <VoidWorld activeCategory={activeCategory} activeSubFeature={activeSubFeature} content={content} />
@@ -426,6 +439,23 @@ export default function App() {
                 <TeleportRing key={r.id} position={r.position} angle={r.angle} color={r.color} label={r.label} />
               ))}
             {!interior && pathRequest && <PathLine to={pathRequest.to} requestKey={pathRequest.key} />}
+            {!interior && popupVisible && (
+              <EntryPrompt onStateIntention={handleStateIntention} onLearnAboutCortex={handleLearnAboutCortex} onDismiss={dismissPopup} />
+            )}
+            {!interior && ringPrompt && (
+              <RingPrompt3D
+                key={ringPrompt.id}
+                position={ringPrompt.position}
+                label={ringPrompt.label}
+                onConfirm={handleConfirmRingTeleport}
+                onCancel={handleCancelRingPrompt}
+              />
+            )}
+            {!interior && mapOpen && <Map3D onClose={handleCloseMap} onPointTheWay={handlePointTheWay} onWarp={handleWarp} />}
+            {learnActive && <Overview onComplete={handleLearnComplete} />}
+            {interior && featureOverviewOpen && (
+              <Overview panels={buildFeaturePanels(activeLandmark)} onComplete={() => setFeatureOverviewOpen(false)} />
+            )}
             <FirstPersonRig
               enabled={firstPersonEnabled}
               landmarks={interior ? [] : landmarkTargets}
@@ -468,72 +498,33 @@ export default function App() {
         </div>
       )}
 
-      {phase === 'world' && popupVisible && (
-        <div className="dashboard-popup">
-          <p className="dashboard-popup-text">You have entered Cortex. How may I help you?</p>
-          <div className="dashboard-popup-actions">
-            <button className="landing-enter-btn" onClick={handleStateIntention}>
-              State my intention
-            </button>
-            <button className="landing-enter-btn landing-enter-btn-ghost" onClick={handleLearnAboutCortex}>
-              Learn about Cortex
-            </button>
-          </div>
-          <p className="dashboard-popup-hint">Or just walk {'\u2014'} press W or an arrow key to explore freely.</p>
-          <button className="dashboard-popup-dismiss" onClick={dismissPopup} aria-label="Dismiss">
-            {'\u2715'}
-          </button>
-        </div>
-      )}
-
-      {phase === 'world' && learnActive && <Overview onComplete={handleLearnComplete} />}
-
       {phase === 'world' && consoleOpen && (
         <CenterConsole onSubmitIntent={handleSubmitIntent} onActivityChange={setListening} />
       )}
 
-      {phase === 'world' && mapOpen && !interior && (
-        <Map onClose={handleCloseMap} onPointTheWay={handlePointTheWay} onWarp={handleWarp} />
-      )}
-
-      {phase === 'world' && ringPrompt && (
-        <div className="ring-prompt-popup" key={ringPrompt.id}>
-          <p className="ring-prompt-text">Enter {ringPrompt.label}?</p>
-          <div className="ring-prompt-actions">
-            <button className="landing-enter-btn" onClick={handleConfirmRingTeleport}>
-              Enter
-            </button>
-            <button className="landing-enter-btn landing-enter-btn-ghost" onClick={handleCancelRingPrompt}>
-              Not yet
-            </button>
-          </div>
-        </div>
-      )}
-
-      {phase === 'world' && hubBrief && (
-        <div className="hub-brief-popup" key={hubBrief.key}>
-          <div className="hub-brief-label">{hubBrief.label}</div>
-          <div className="hub-brief-text">{hubBrief.text}</div>
-          <button className="hub-brief-dismiss" onClick={dismissHubBrief} aria-label="Dismiss">
-            {'\u2715'}
-          </button>
-        </div>
-      )}
+      <Crosshair visible={phase === 'world' && firstPersonEnabled && !isTouch} />
 
       {phase === 'world' && firstPersonEnabled && (
         <TouchControls joystickRef={joystickRef} lookDeltaRef={lookDeltaRef} visible={isTouch} />
       )}
 
       {phase === 'world' && !isTouch && !consoleOpen && !mapOpen && !learnActive && !pointerLocked && (
-        <div className="lock-hint">Click to look around {'\u00b7'} WASD or arrows to move</div>
+        <div className="lock-hint">
+          Click to look around {'\u00b7'} WASD or arrows to move {'\u00b7'} M for the Map {'\u00b7'} V to speak
+          {interior ? ' \u00b7 Backspace to leave' : ' \u00b7 Q to exit Cortex'}
+        </div>
       )}
 
       {phase === 'world' && !isTouch && !consoleOpen && !mapOpen && !learnActive && pointerLocked && (
-        <div className="unlock-hint">Esc to free your cursor for menus</div>
+        <div className="unlock-hint">Esc to free your cursor {'\u00b7'} M \u00b7 V {'\u00b7'} Q</div>
       )}
 
-      {phase === 'world' && !consoleOpen && !learnActive && (
-        <div className="world-hud">
+      {/* Touch devices have no keyboard for the M / V / Q shortcuts above,
+          so this small trigger row is a deliberate, minimal exception —
+          not a return to the old fixed 2D button bar, just the minimum
+          needed for touch users to reach the same actions. */}
+      {phase === 'world' && isTouch && !consoleOpen && !learnActive && !featureOverviewOpen && (
+        <div className="world-hud world-hud-touch">
           {!interior && (
             <button className="hud-btn" onClick={handleOpenMap}>
               Map
@@ -543,13 +534,12 @@ export default function App() {
             className="hud-btn"
             onClick={() => {
               setConsoleOpen(true)
-              document.exitPointerLock && document.exitPointerLock()
             }}
           >
             Speak
           </button>
           {interior ? (
-            <button className="hud-btn hud-btn-exit" onClick={handleExitInterior} title={isTouch ? undefined : 'Backspace also works'}>
+            <button className="hud-btn hud-btn-exit" onClick={handleExitInterior}>
               Leave
             </button>
           ) : (
